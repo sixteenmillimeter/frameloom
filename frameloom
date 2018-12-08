@@ -1,0 +1,308 @@
+#!/usr/bin/env node
+
+'use strict';
+
+const execRaw = require('child_process').exec;
+const os = require('os');
+const path = require('path');
+const program = require('commander');
+const fs = require('fs-extra');
+
+let TMPDIR = os.tmpdir() || '/tmp';
+let TMPPATH;
+
+async function exec (cmd) {
+	return new Promise((resolve, reject) => {
+		return execRaw(cmd, (err, stdio, stderr) => {
+			if (err) return reject(err);
+			return resolve(stdio);
+		});
+	});
+}
+
+async function clear () {
+	let exists;
+	try {
+		exists = await fs.exists(TMPPATH);
+	} catch (err) {
+		console.error(err)
+	}
+
+	if (exists) {
+		console.log(`Clearing tmp directory ${TMPPATH}`)
+		try {
+			await exec(`rm -r "${TMPPATH}"`)
+		} catch (err) {
+			//suppress error
+		}
+	}
+
+	try {
+		await fs.mkdir(TMPPATH)
+	} catch (Err) {
+		console.error(err);
+	}
+}
+
+async function frames (video, order) {
+	let ext = 'tif';
+	let tmpoutput;
+	let cmd;
+
+	tmpoutput = path.join(TMPPATH, `export-%05d_${order}.${ext}`);
+
+	cmd = `ffmpeg -i "${video}" -compression_algo raw -pix_fmt rgb24 "${tmpoutput}"`
+
+	console.log(`Exporting ${video} as single frames...`)
+
+	try {
+		await exec(cmd)
+	} catch (err) {
+		console.error('Error exporting video', err)
+		return process.exit(3)
+	}
+	return path.join(TMPPATH, `export_${order}`);
+} 
+
+function zeroPad (i, max = 5) {
+	let len = (i + '').length;
+	let str = i + '';
+	for (let x = 0; x < max - len; x++) {
+		str = '0' + str;
+	}
+	return str;
+}
+
+async function reorder (pattern, realtime) {
+	let frames;
+	let old;
+	let seqFile;
+	let seq;
+	console.log('Weaving frames...')
+	try {
+		frames = await fs.readdir(TMPPATH)
+	} catch (err) {
+		console.error('Error reading tmp directory', err)
+	}
+
+	console.dir(frames)
+	frames = frames.filter (file =>{
+		if (file.indexOf('.tif') !== -1) return true;
+	});
+	//other patterns
+
+	try {
+		seq = await patternSort(frames, pattern, realtime)
+	} catch (err) {
+		console.error('Error sorting frames')
+	}
+	console.dir(seq)
+	//
+}
+
+function groupAlt (list, pattern, realtime) {
+	let groups = [];
+	let newList = [];
+	let frameCount = 0;
+	let oldPath;
+	let newName;
+	let newPath;
+	let ext = path.extname(list[0]);
+	
+	for (let g of pattern) {
+		groups.push([]);
+	}
+	for (let i = 0; i < list.length; i++) {
+		groups[i % pattern.length].push(list[i]);
+	}
+	for (let x = 0; x < list.length; x++) {
+		for (let g of pattern) {
+			for (let i = 0; i < g; i++) {
+
+				/*oldPath = path.join(TMPPATH, list[i]);
+				newName = `./render_${zeroPad(frameCount)}${ext}`;
+				newPath = path.join(TMPPATH, newName);
+
+				console.log(`Renaming ${list[i]} -> ${newName}`);
+
+				try {
+					//fs.renameSync(oldPath, newPath)
+					newList.push(newName);
+				} catch (err) {
+					console.error(err);
+				}*/
+
+				frameCount++
+			}
+		}
+	}
+	return newList
+}
+
+async function patternSort (list, pattern, realtime = false) {
+	let frameCount = 0;
+	let stepCount;
+	let step;
+	let skipCount;
+	let skip;
+	let alt;
+	let ext = path.extname(list[0]);
+	let oldPath;
+	let newName;
+	let newPath;
+	let newList = [];
+
+	for (let el of pattern) {
+		if (el !== 1) alt = true;
+	}
+
+	if (realtime) {
+		skip = false;
+		skipCount = pattern.length + 1;
+	}
+	
+	if (!alt) {
+		for (let i = 0; i < list.length; i++) {
+
+			if (realtime) {
+				skipCount--;
+				if (skipCount === 0) {
+					skip = !skip;
+					skipCount = pattern.length;
+				}
+			}
+
+			oldPath = path.join(TMPPATH, list[i]);
+
+			if (skip) {
+				console.log(`Skipping ${list[i]}`);
+				try {
+					await fs.unlink(oldPath)
+				} catch (err) {
+					console.error(err);
+				}
+				continue;
+			}
+
+			newName = `./render_${zeroPad(frameCount)}${ext}`;
+			newPath = path.join(TMPPATH, newName);
+			console.log(`Renaming ${list[i]} -> ${newName}`);
+
+			try {
+				await fs.rename(oldPath, newPath)
+				newList.push(newName);
+			} catch (err) {
+				console.error(err);
+			}
+
+			frameCount++;
+		}
+	} else {
+		newList = groupAlt(list, pattern, realtime);
+	}
+
+	return newList
+}
+
+async function render (output) {
+	let exp = path.join(TMPPATH, `render_%05d.tif`);
+	let resolution = '1920x1080';
+	let h264 = `-vcodec libx264 -g 1 -crf 25 -pix_fmt yuv420p`;
+	let prores = `-c:v prores -profile:v 3 -c:a pcm_s16le - g 1`;
+	let format = (output.indexOf('.mov') !== -1) ? prores : h264;
+	const cmd = `ffmpeg -r 24 -f image2 -s ${resolution} -i ${exp} ${format} -y ${output}`;
+	
+	console.log(`Exporting video ${output}`);
+	console.log(cmd);
+
+	try {
+		await exec(cmd);
+	} catch (err) {
+		console.error(err);
+	}
+}
+
+async function main (arg) {
+	let input = arg.input.split(':');
+	let output = arg.output;
+	let pattern = [];
+	let realtime = false;
+	console.time('frameloom');
+
+	if (input.length < 2) {
+		console.error('Must provide more than 1 input');
+		return process.exit(1);
+	}
+
+	if (!output) {
+		console.error('Must provide video output path');
+		return process.exit(2);
+	}
+
+	if (arg.pattern) {
+		pattern = arg.pattern.split(':');
+		pattern = pattern.map(el =>{
+			return parseInt(el);
+		})
+	} else {
+		for (let i = 0; i <input.length; i++) {
+			pattern.push(1);
+		}
+	}
+
+	if (arg.realtime) realtime = true;
+
+	TMPPATH = path.join(TMPDIR, 'frameloom');
+
+	try {
+		await clear()
+	} catch (err) {
+		console.error(err);
+		return process.exit(3)
+	}
+
+	console.log(`Processing video files ${input.join(', ')} into ${output} with pattern ${pattern.join(':')}`)
+
+	for (let i = 0; i <input.length; i++) {
+		try {
+			await frames(input[i], i)
+		} catch (err) {
+			console.error(err);
+		}
+	}
+
+	try {
+		await reorder(pattern, realtime)
+	} catch (err) {
+		console.error(err)
+	}
+
+	try {
+		await render(output)
+	} catch (err) {
+		console.error(err)
+	}
+
+	try {
+		await clear()
+	} catch (err) {
+		console.error(err);
+		return process.exit(3)
+	}
+
+	console.timeEnd('frameloom')
+}
+
+
+ 
+program
+  .version('1.0.0')
+  .option('-i, --input [files]', 'Specify input videos with paths seperated by colon')
+  .option('-o, --output [file]', 'Specify output path of video')
+  .option('-p, --pattern [pattern]', 'Specify a pattern for the flicker 1:1 is standard')
+  .option('-r, --realtime', 'Specify if videos should preserve realtime speed')
+  .option('-t, --tmp [dir]', 'Specify tmp directory for exporting frames')
+  .option('-a, --avconv', 'Specify avconv if preferred to ffmpeg')
+  .parse(process.argv);
+
+main(program)
