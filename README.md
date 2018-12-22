@@ -13,17 +13,19 @@ Installation instructions for ffmpeg here: https://github.com/adaptlearning/adap
 ## Installation
 
 ```
-git clone https://github.com/sixteenmillimeter/videoloom.git
-cd videoloom
-chmod +x videoloom
+git clone https://github.com/sixteenmillimeter/frameloom.git
+cd frameloom
 npm install 
+chmod +x frameloom
 ```
 
 ## Basic Usage
 
-```./videoloom -i /path/to/video1:/path/to/video2 -o /path/to/output```
+```./frameloom -i /path/to/video1:/path/to/video2 -o /path/to/output```
 
-## Features
+## Options
+
+Run `./frameloom -h` to display help screen.
 
 ```
 Usage: frameloom [options]
@@ -36,6 +38,7 @@ Options:
   -r, --realtime           Specify if videos should preserve realtime speed
   -t, --tmp [dir]          Specify tmp directory for exporting frames
   -a, --avconv             Specify avconv if preferred to ffmpeg
+  -R, --random             Randomize frames. Ignores pattern if included
   -h, --help               output usage information
 
 ```
