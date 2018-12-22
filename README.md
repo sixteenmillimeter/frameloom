@@ -12,12 +12,30 @@ Installation instructions for ffmpeg here: https://github.com/adaptlearning/adap
 
 ## Installation
 
+```
 git clone https://github.com/sixteenmillimeter/videoloom.git
 cd videoloom
 chmod +x videoloom
 npm install 
+```
 
+## Basic Usage
 
-## Usage
+```./videoloom -i /path/to/video1:/path/to/video2 -o /path/to/output```
 
-./videoloom -i /path/to/video1:/path/to/video2 -o /path/to/output
+## Features
+
+```
+Usage: frameloom [options]
+
+Options:
+  -V, --version            output the version number
+  -i, --input [files]      Specify input videos with paths seperated by colon
+  -o, --output [file]      Specify output path of video
+  -p, --pattern [pattern]  Specify a pattern for the flicker 1:1 is standard
+  -r, --realtime           Specify if videos should preserve realtime speed
+  -t, --tmp [dir]          Specify tmp directory for exporting frames
+  -a, --avconv             Specify avconv if preferred to ffmpeg
+  -h, --help               output usage information
+
+```
