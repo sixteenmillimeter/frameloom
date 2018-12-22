@@ -10,6 +10,7 @@ const fs = require('fs-extra')
 
 let TMPDIR = os.tmpdir() || '/tmp'
 let TMPPATH
+
 /**
  * 	Shells out to execute a command with async/await.
  * 	Async wrapper to exec module.
@@ -70,6 +71,7 @@ function shuffle (a) {
  * 	Establishes a directory if none exists.
  **/
 async function clear () {
+	let cmd = `rm -r "${TMPPATH}"`
 	let exists
 
 	try {
@@ -81,9 +83,10 @@ async function clear () {
 	if (exists) {
 		console.log(`Clearing temp directory "${TMPPATH}"`)
 		try {
-			await fs.rmdir(TMPPATH)
+			await exec(cmd)
 		} catch (err) {
 			//suppress error
+			console.dir(err)
 		}
 	}
 
@@ -94,6 +97,8 @@ async function clear () {
 			console.error(err)
 		}
 	}
+
+	return true
 }
 /**
  * 	Exports all frames from video. Appends number to the string
@@ -124,7 +129,7 @@ async function frames (video, order, avconv) {
 		return process.exit(3)
 	}
 
-	return path.join(TMPPATH, `export_${order}`)
+	return path.join(TMPPATH, `export-%05d_${order}`)
 } 
 /**
  *	Re-arranges the frames into the order specified in the pattern.
@@ -273,7 +278,7 @@ async function standardSort (list, pattern, realtime) {
 		console.log(`Renaming ${list[i]} -> ${newName}`)
 
 		try {
-			await fs.move(oldPath, newPath, { overwrite: true })
+			await fs.move(oldPath, newPath)
 			newList.push(newName)
 			frameCount++
 		} catch (err) {
@@ -330,7 +335,7 @@ async function randomSort (list, pattern, realtime) {
 		console.log(`Renaming ${list[i]} -> ${newName}`)
 
 		try {
-			await fs.move(oldPath, newPath, { overwrite : true })
+			await fs.move(oldPath, newPath)
 			newList.push(newName)
 		} catch (err) {
 			console.error(err)
@@ -354,7 +359,8 @@ async function render (output, avconv) {
 	let h264 = `-vcodec libx264 -g 1 -crf 25 -pix_fmt yuv420p`
 	let prores = `-c:v prores_ks -profile:v 3`
 	let format = (output.indexOf('.mov') !== -1) ? prores : h264
-	const cmd = `${exe} -r 24 -f image2 -s ${resolution} -i ${frames} ${format} -y ${output}`
+	let framerate = `24`
+	const cmd = `${exe} -r ${framerate} -f image2 -s ${resolution} -i ${frames} ${format} -y ${output}`
 	
 	console.log(`Exporting video ${output}`)
 	console.log(cmd)
@@ -442,8 +448,6 @@ async function main (arg) {
 		return process.exit(5)
 	}
 
-	await delay(2000)
-
 	try {
 		await render(output, avconv)
 	} catch (err) {
@@ -452,7 +456,7 @@ async function main (arg) {
 	}
 
 	try {
-		//await clear()
+		await clear()
 	} catch (err) {
 		console.error(err)
 		return process.exit(7)
