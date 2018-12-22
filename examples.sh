@@ -5,6 +5,7 @@ echo "Downloading example videos from archive.org..."
 mkdir examples
 
 #Please run this script sparingly!!!
+#examples come from https://archive.org/details/ElectricSheep
 
 if [ ! -f ./examples/A.mp4 ]; then
 	wget -O A.mp4 https://ia802701.us.archive.org/9/items/electricsheep-flock-244-20000-0/00244%3D20660%3D11095%3D11000_512kb.mp4

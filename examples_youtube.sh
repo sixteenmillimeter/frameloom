@@ -5,7 +5,7 @@
 echo "Downloading example videos using youtube-dl..."
 
 mkdir examples
-#11 sec
+#11 second videos
 if [ ! -f ./examples/Y1.mp4 ]; then
 	(cd examples && youtube-dl --verbose --format 'bestvideo+bestaudio/best' --audio-format best https://www.youtube.com/watch?v=u2DYOsrJrDQ)
 	(mv "./examples/Stars Through the Trees-u2DYOsrJrDQ.mp4" "./examples/Y1.mp4")
@@ -19,7 +19,7 @@ else
 	echo "Y2.mp4 already exists"
 fi
 if [ ! -f ./examples/Y3.mp4 ]; then
-	#(cd examples && youtube-dl --verbose --format 'bestvideo+bestaudio/best' --audio-format best https://www.youtube.com/watch?v=HHdfpIoSAfs)
+	(cd examples && youtube-dl --verbose --format 'bestvideo+bestaudio/best' --audio-format best https://www.youtube.com/watch?v=HHdfpIoSAfs)
 	mv "./examples/Free Nature Stock Footage - Birds Reflected in Water-HHdfpIoSAfs.mp4" "./examples/Y3.mp4"
 else 
 	echo "Y3.mp4 already exists"
