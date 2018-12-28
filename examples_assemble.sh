@@ -1,6 +1,8 @@
-#!/bin/bash
+#!/bin/sh
 
 declare -a arr=("frameloom" "Basic usage")
+
+mkdir -p examples
 
 ## now loop through the above array
 for i in "${!arr[@]}"

@@ -1,10 +1,11 @@
-#!/bin/bash
+#!/bin/sh
 
 #This example script requires that you have youtube-dl installed 
 
 echo "Downloading example videos using youtube-dl..."
 
-mkdir examples
+mkdir -p examples
+
 #11 second videos
 if [ ! -f ./examples/Y1.mp4 ]; then
 	(cd examples && youtube-dl --verbose --format 'bestvideo+bestaudio/best' --audio-format best https://www.youtube.com/watch?v=u2DYOsrJrDQ)

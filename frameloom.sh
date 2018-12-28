@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/bin/sh 
 
-# Simple bash script version of frameloom 
+# Simple shell script version of frameloom 
 # Only creates a 1:1 pattern between 2 videos 
 
 # Usage : sh frameloom.sh examples/A.mp4 examples/B.mp4 examples/OUTPUT.mp4

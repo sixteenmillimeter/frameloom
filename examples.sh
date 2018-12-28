@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/bin/sh
 
 echo "Downloading example videos from archive.org..."
 
-mkdir examples
+mkdir -p examples
 
 #Please run this script sparingly!!!
 #examples come from https://archive.org/details/ElectricSheep
