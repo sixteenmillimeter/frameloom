@@ -1,4 +1,4 @@
-# frameoloom
+# frameloom
 
 Node script to generate flicker videos by interweaving frames from multiple videos
 
