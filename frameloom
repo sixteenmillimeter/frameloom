@@ -175,6 +175,8 @@ async function weave (pattern, realtime, random) {
 			console.error('Error sorting frames')
 		}
 	} else if (alt) {
+		console.warn('This feature is not ready, please check https://github.com/sixteenmillimeter/frameloom.git')
+		process.exit(10)
 		try {
 			seq = await altSort(frames, pattern, realtime)
 		} catch (err) {
