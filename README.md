@@ -42,3 +42,10 @@ Options:
   -h, --help               output usage information
 
 ```
+
+## TODO
+
+* Fix alternate sort pattern features
+* Check for ffmpeg or avconv before executing
+* Generate example videos automatically
+* Publish example videos
