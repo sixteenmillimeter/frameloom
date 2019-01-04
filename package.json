@@ -5,7 +5,8 @@
   "main": "frameloom",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "version": "npm --no-git-tag-version version patch"
+    "version": "npm --no-git-tag-version version patch",
+    "docs" : "sh docs.sh"
   },
   "author": "sixteenmillimeter",
   "license": "MIT",
