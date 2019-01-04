@@ -380,6 +380,8 @@ async function render (output, avconv) {
 /**
  * 	Parses the arguments and runs the process of exporting, sorting and then
  * 	"weaving" the frames back into a video 
+ * 
+ * @param {object} 	arg 	Object containing all arguments
  **/
 async function main (arg) {
 	let input = arg.input.split(':')
@@ -406,6 +408,10 @@ async function main (arg) {
 
 	if (arg.avconv) {
 		avconv = true
+	}
+
+	if (arg.tmp) {
+		TMPDIR = arg.tmp
 	}
 
 	if (arg.pattern) {
