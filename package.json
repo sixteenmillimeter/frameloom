@@ -2,7 +2,7 @@
   "name": "frameloom",
   "version": "1.0.0",
   "description": "Node script to generate flicker videos by interweaving frames from multiple videos",
-  "main": "index.js",
+  "main": "frameloom",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -11,5 +11,10 @@
   "dependencies": {
     "commander": "^2.19.0",
     "fs-extra": "^7.0.1"
+  },
+  "devDependencies": {
+    "jsdoc-to-markdown": "^4.0.1",
+    "pkg": "^4.3.5",
+    "qunit": "^2.8.0"
   }
 }
