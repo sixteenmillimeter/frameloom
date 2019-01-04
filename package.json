@@ -1,10 +1,11 @@
 {
   "name": "frameloom",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Node script to generate flicker videos by interweaving frames from multiple videos",
   "main": "frameloom",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "version": "npm --no-git-tag-version version patch"
   },
   "author": "sixteenmillimeter",
   "license": "MIT",
