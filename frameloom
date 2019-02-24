@@ -8,6 +8,12 @@ const path = require('path')
 const program = require('commander')
 const fs = require('fs-extra')
 
+const pkg = require('./package.json')
+
+const OUTPUT_RE = new RegExp('{{o}}', 'g')
+const INPUT_RE = new RegExp('{{i}}', 'g')
+
+let QUIET = false
 let TMPDIR = os.tmpdir() || '/tmp'
 let TMPPATH
 
@@ -38,6 +44,19 @@ async function delay (ms) {
 	return new Promise((resolve, reject) =>{
 		return setTimeout(resolve, ms)
 	})
+}
+/**
+ * Log function wrapper that can silences logs when
+ * QUIET == true
+ */
+function log (msg, err) {
+	if (QUIET) return false
+	if (err) {
+		console.error(msg, err)
+	} else {
+		console.log(msg)
+	}
+	return true
 }
 /**
  * 	Pads a numerical value with preceding zeros to make strings same length.
@@ -77,11 +96,11 @@ async function clear () {
 	try {
 		exists = await fs.exists(TMPPATH)
 	} catch (err) {
-		console.error(err)
+		log('Error checking if file exists', err)
 	}
 
 	if (exists) {
-		console.log(`Clearing temp directory "${TMPPATH}"`)
+		log(`Clearing temp directory "${TMPPATH}"`)
 		try {
 			await exec(cmd)
 		} catch (err) {
@@ -94,7 +113,7 @@ async function clear () {
 		await fs.mkdir(TMPPATH)
 	} catch (err) {
 		if (err.code !== 'EEXIST') {
-			console.error(err)
+			log('Error making directory', err)
 		}
 	}
 
@@ -110,7 +129,7 @@ async function clear () {
  *
  * 	@returns 	{string} 	String with the export order, not sure why I did this
  **/
-async function frames (video, order, avconv) {
+async function frames (video, order, avconv, e) {
 	let ext = 'tif'
 	let exe = avconv ? 'avconv' : 'ffmpeg'
 	let tmpoutput
@@ -120,16 +139,52 @@ async function frames (video, order, avconv) {
 
 	cmd = `${exe} -i "${video}" -compression_algo raw -pix_fmt rgb24 "${tmpoutput}"`
 
-	console.log(`Exporting ${video} as single frames...`)
+	log(`Exporting ${video} as single frames...`)
 
 	try {
 		await exec(cmd)
 	} catch (err) {
-		console.error('Error exporting video', err)
+		log('Error exporting video', err)
 		return process.exit(3)
 	}
 
 	return path.join(TMPPATH, `export-%05d_${order}`)
+}
+/**
+ * Shells out to run a sub command on every frame to perform effects
+ *
+ **/
+async function subExec (cmd) {
+	let frames
+	let frameCmd
+	let framePath
+
+	try {
+		frames = await fs.readdir(TMPPATH)
+	} catch (err) {
+		log('Error reading tmp directory', err)
+	}
+
+	frames = frames.filter (file =>{
+		if (file.indexOf('.tif') !== -1) return true
+	})
+
+	for (let frame of frames) {
+		framePath = path.join(TMPPATH, frame)
+		if (cmd.indexOf('{{i}}') !== -1 || cmd.indexOf('{{o}}')) {
+			frameCmd = cmd.replace(INPUT_RE, framePath)
+						.replace(OUTPUT_RE, framePath)
+		} else {
+			frameCmd = `${cmd} ${framePath}`
+		}
+
+		try {
+			await exec(frameCmd)
+		} catch (err) {
+			log('Error executing sub command on frame', err)
+			return process.exit(10)
+		}
+	}
 } 
 /**
  *	Re-arranges the frames into the order specified in the pattern.
@@ -145,12 +200,12 @@ async function weave (pattern, realtime, random) {
 	let seq
 	let alt = false
 
-	console.log('Weaving frames...')
+	log('Weaving frames...')
 
 	try {
 		frames = await fs.readdir(TMPPATH)
 	} catch (err) {
-		console.error('Error reading tmp directory', err)
+		log('Error reading tmp directory', err)
 	}
 
 	//console.dir(frames)
@@ -166,21 +221,21 @@ async function weave (pattern, realtime, random) {
 		try {
 			seq = await randomSort(frames, realtime)
 		} catch (err) {
-			console.error('Error sorting frames')
+			log('Error sorting frames', err)
 		}
 	} else if (!alt) {
 		try {
 			seq = await standardSort(frames, pattern, realtime)
 		} catch (err) {
-			console.error('Error sorting frames')
+			log('Error sorting frames', err)
 		}
 	} else if (alt) {
-		console.warn('This feature is not ready, please check https://github.com/sixteenmillimeter/frameloom.git')
+		log('This feature is not ready, please check https://github.com/sixteenmillimeter/frameloom.git', {})
 		process.exit(10)
 		try {
 			seq = await altSort(frames, pattern, realtime)
 		} catch (err) {
-			console.error('Error sorting frames')
+			log('Error sorting frames', err)
 		}
 	}
 	//console.dir(seq)
@@ -215,13 +270,13 @@ async function altSort (list, pattern, realtime) {
 				newName = `./render_${zeroPad(frameCount)}${ext}`;
 				newPath = path.join(TMPPATH, newName);
 
-				console.log(`Renaming ${list[i]} -> ${newName}`);
+				log(`Renaming ${list[i]} -> ${newName}`);
 
 				try {
 					//await fs.move(oldPath, newPath, { overwrite: true })
 					newList.push(newName);
 				} catch (err) {
-					console.error(err);
+					log(err);
 				}*/
 
 				frameCount++
@@ -266,25 +321,25 @@ async function standardSort (list, pattern, realtime) {
 		oldPath = path.join(TMPPATH, list[i])
 
 		if (skip) {
-			console.log(`Skipping ${list[i]}`)
+			log(`Skipping ${list[i]}`)
 			try {
 				await fs.unlink(oldPath)
 			} catch (err) {
-				console.error(err)
+				log('Error deleting frame', err)
 			}
 			continue
 		}
 
 		newName = `./render_${zeroPad(frameCount)}${ext}`
 		newPath = path.join(TMPPATH, newName)
-		console.log(`Renaming ${list[i]} -> ${newName}`)
+		log(`Renaming ${list[i]} -> ${newName}`)
 
 		try {
 			await fs.move(oldPath, newPath)
 			newList.push(newName)
 			frameCount++
 		} catch (err) {
-			console.error(err)
+			log('Error renaming frame', err)
 			return process.exit(10)
 		}
 
@@ -317,14 +372,14 @@ async function randomSort (list, pattern, realtime) {
 		remove = list.slice(removeLen, list.length)
 		list = list.slice(0, removeLen)
 
-		console.log(`Skipping extra frames...`)
+		log(`Skipping extra frames...`)
 		for (let i = 0; i < remove.length; i++) {
 			oldPath = path.join(TMPPATH, remove[i])
-			console.log(`Skipping ${list[i]}`)
+			log(`Skipping ${list[i]}`)
 			try {
 				await fs.unlink(oldPath)
 			} catch (err) {
-				console.error(err)
+				log('Error deleting frame', err)
 			}
 		}
 	}
@@ -334,13 +389,13 @@ async function randomSort (list, pattern, realtime) {
 
 		newName = `./render_${zeroPad(frameCount)}${ext}`
 		newPath = path.join(TMPPATH, newName)
-		console.log(`Renaming ${list[i]} -> ${newName}`)
+		log(`Renaming ${list[i]} -> ${newName}`)
 
 		try {
 			await fs.move(oldPath, newPath)
 			newList.push(newName)
 		} catch (err) {
-			console.error(err)
+			log('Error moving frame', err)
 		}
 
 		frameCount++
@@ -364,19 +419,19 @@ async function render (output, avconv) {
 	let framerate = `24`
 	const cmd = `${exe} -r ${framerate} -f image2 -s ${resolution} -i ${frames} ${format} -y ${output}`
 	
-	console.log(`Exporting video ${output}`)
-	console.log(cmd)
+	log(`Exporting video ${output}`)
+	log(cmd)
 
 	/*try {
 		await exec(`ls "${TMPPATH}"`)
 	} catch (err) {
-		console.log(err)
+		log(err)
 	}*/
 
 	try {
 		await exec(cmd)
 	} catch (err) {
-		console.error(err)
+		log('Error rendering video with ffmpeg', err)
 	}
 }
 /**
@@ -392,15 +447,16 @@ async function main (arg) {
 	let realtime = false
 	let avconv = false
 	let random = false
+	let e = false
 	console.time('frameloom')
 
 	if (input.length < 2) {
-		console.error('Must provide more than 1 input')
+		log('Must provide more than 1 input', {})
 		return process.exit(1)
 	}
 
 	if (!output) {
-		console.error('Must provide video output path')
+		log('Must provide video output path', {})
 		return process.exit(2)
 	}
 
@@ -414,6 +470,14 @@ async function main (arg) {
 
 	if (arg.tmp) {
 		TMPDIR = arg.tmp
+	}
+
+	if (arg.exec) {
+		e = arg.exec
+	}
+
+	if (arg.quiet) {
+		QUIET = true
 	}
 
 	if (arg.pattern) {
@@ -434,39 +498,49 @@ async function main (arg) {
 	try {
 		await clear()
 	} catch (err) {
-		console.error(err)
+		log('Error clearing temp directory', err)
 		return process.exit(3)
 	}
 
-	console.log(`Processing video files ${input.join(', ')} into ${output} with pattern ${pattern.join(':')}`)
+	log(`Processing video files ${input.join(', ')} into ${output} with pattern ${pattern.join(':')}`)
 
-	for (let i = 0; i <input.length; i++) {
+	for (let i = 0; i < input.length; i++) {
 		try {
 			await frames(input[i], i, avconv)
 		} catch (err) {
-			console.error(err)
+			log('Error exporting video fie to image sequence', err)
 			return process.exit(4)
 		}
 	}
 
+	log('Weaving frames')
 	try {
 		await weave(pattern, realtime, random)
 	} catch (err) {
-		console.error(err)
+		log('Error weaving', err)
 		return process.exit(5)
+	}
+
+	if (e) {
+		try {
+			await subExec(e)
+		} catch (err) {
+			log('Error performing subcommand', err)
+			return process.exit(7)
+		}
 	}
 
 	try {
 		await render(output, avconv)
 	} catch (err) {
-		console.error(err)
+		log('Error rendering', err)
 		return process.exit(6)
 	}
 
 	try {
 		await clear()
 	} catch (err) {
-		console.error(err)
+		log('Error clearing files', err)
 		return process.exit(7)
 	}
 
@@ -474,7 +548,7 @@ async function main (arg) {
 }
 
 program
-  .version('1.0.0')
+  .version(pkg.version)
   .option('-i, --input [files]', 'Specify input videos with paths seperated by colon')
   .option('-o, --output [file]', 'Specify output path of video')
   .option('-p, --pattern [pattern]', 'Specify a pattern for the flicker 1:1 is standard')
@@ -482,6 +556,8 @@ program
   .option('-t, --tmp [dir]', 'Specify tmp directory for exporting frames')
   .option('-a, --avconv', 'Specify avconv if preferred to ffmpeg')
   .option('-R, --random', 'Randomize frames. Ignores pattern if included')
+  .option('-e, --exec', 'Command to execute on every frame. Specify {{i}} and {{o}} if the command requires it, otherwise frame path will be appended to command')
+  .option('-q, --quiet', 'Suppresses all log messages')
   .parse(process.argv)
 
 main(program)
