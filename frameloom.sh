@@ -15,6 +15,8 @@ fi
 
 mkdir -p $TMPDIR
 
+#relies on the alphanumeric sorting that occurs when getting
+#the list of files in the for loop below
 ffmpeg -i "$1" -compression_algo raw -pix_fmt rgb24 "${TMPDIR}export-%05d_a.tif"
 ffmpeg -i "$2" -compression_algo raw -pix_fmt rgb24 "${TMPDIR}export-%05d_b.tif"
 
