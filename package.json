@@ -1,17 +1,17 @@
 {
   "name": "frameloom",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Node script to generate flicker videos by interweaving frames from multiple videos",
   "main": "frameloom",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "version": "npm --no-git-tag-version version patch",
-    "compile" : "./node_modules/.bin/tsc src/frameloom.ts --outFile ./frameloom --noImplicitAny --lib ES2017 -t ES2017 --moduleResolution Node",
-    "build" : "node build.js",
+    "compile": "./node_modules/.bin/tsc src/frameloom.ts --outFile ./frameloom --noImplicitAny --lib ES2017 -t ES2017 --moduleResolution Node",
+    "build": "node build.js",
     "docs": "sh ./scripts/docs.sh",
-    "examples" : "sh ./scripts/examples.sh",
-    "examples:youtube" : "sh ./scripts/examples_youtube.sh",
-    "examples:assemble" : "sh ./scripts/examples_assemble.sh"
+    "examples": "sh ./scripts/examples.sh",
+    "examples:youtube": "sh ./scripts/examples_youtube.sh",
+    "examples:assemble": "sh ./scripts/examples_assemble.sh"
   },
   "author": "sixteenmillimeter",
   "license": "MIT",
