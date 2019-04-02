@@ -6,7 +6,12 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "version": "npm --no-git-tag-version version patch",
-    "docs": "sh docs.sh"
+    "compile" : "./node_modules/.bin/tsc src/frameloom.ts --outFile ./frameloom --noImplicitAny -t ES2017 --moduleResolution Node",
+    "build" : "node build.js",
+    "docs": "sh ./scripts/docs.sh",
+    "examples" : "sh ./scripts/examples.sh",
+    "examples:youtube" : "sh ./scripts/examples_youtube.sh",
+    "examples:assemble" : "sh ./scripts/examples_assemble.sh"
   },
   "author": "sixteenmillimeter",
   "license": "MIT",
@@ -15,8 +20,10 @@
     "fs-extra": "^7.0.1"
   },
   "devDependencies": {
+    "@types/node": "^11.13.0",
     "jsdoc-to-markdown": "^4.0.1",
     "pkg": "^4.3.5",
-    "qunit": "^2.8.0"
+    "qunit": "^2.8.0",
+    "typescript": "^3.4.1"
   }
 }
