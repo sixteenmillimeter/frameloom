@@ -25,5 +25,11 @@
     "pkg": "^4.3.5",
     "qunit": "^2.8.0",
     "typescript": "^3.4.1"
+  },
+  "pkg": {
+    "scripts": [
+      "./frameloom",
+      "./lib/**/*"
+    ]
   }
 }
