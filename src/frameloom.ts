@@ -27,7 +27,7 @@ let TMPPATH : string
  **/
 async function exec (cmd : string) {
 	return new Promise((resolve : any, reject : any) => {
-		return execRaw(cmd, (err : any, stdio : string, stderr : string) => {
+		return execRaw(cmd, { maxBuffer : 500 * 1024 * 1024}, (err : any, stdio : string, stderr : string) => {
 			if (err) return reject(err)
 			return resolve(stdio)
 		})
@@ -89,6 +89,13 @@ function shuffle (array : any[]) {
         array[j] = temp
     }
 }
+
+function randomInt (min : number, max : number) {
+	min = Math.ceil(min);
+	max = Math.floor(max);
+	return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 /**
  * 	Clears the temporary directory of all files. 
  * 	Establishes a directory if none exists.
@@ -409,6 +416,53 @@ async function randomSort (list : string[], pattern : number[], realtime : boole
 
 	return newList
 }
+
+async function spinFrames () {
+	let frames : string[]
+	let framePath : string
+	let cmd : string
+	let flip : string
+	let flop : string
+	let rotate : string 
+
+	console.log('Spinning frames...')
+
+	try {
+		frames = await fs.readdir(TMPPATH)
+	} catch (err) {
+		console.error('Error reading tmp directory', err)
+	}
+
+	//console.dir(frames)
+	frames = frames.filter (file =>{
+		if (file.indexOf('.tif') !== -1) return true
+	})
+
+	for (let frame of frames) {
+		framePath = path.join(TMPPATH, frame)
+		rotate = ''
+		flip = ''
+		flop = ''
+		if (randomInt(0, 1) === 1) {
+			rotate = '-rotate 180 '
+		}
+		if (randomInt(0, 1) === 1) {
+			flip = '-flip '
+		}
+		if (randomInt(0, 1) === 1) {
+			flop = '-flop '
+		}
+		cmd = `convert ${framePath} ${rotate}${flip}${flop} ${framePath}`
+		console.log(cmd)
+		try {
+			await exec(cmd)
+		} catch (err) {
+			console.error(err)
+			process.exit(10)
+		}
+	}
+}
+
 /**
  *	Render the frames into a video using ffmpeg.
  *
