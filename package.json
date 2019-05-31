@@ -22,7 +22,7 @@
   "devDependencies": {
     "@types/node": "^11.13.0",
     "jsdoc-to-markdown": "^4.0.1",
-    "pkg": "^4.3.5",
+    "pkg": "^4.4.0",
     "qunit": "^2.8.0",
     "typescript": "^3.4.1"
   },
