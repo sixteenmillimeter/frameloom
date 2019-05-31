@@ -231,20 +231,23 @@ async function weave (pattern : number[], realtime : boolean, random : boolean) 
 	}
 
 	if (random){
+		log('Sorting frames randomly...')
 		try {
 			seq = await randomSort(frames, pattern, realtime)
 		} catch (err) {
 			log('Error sorting frames', err)
 		}
 	} else if (!alt) {
+		log('Sorting frames normally...')
 		try {
 			seq = await standardSort(frames, pattern, realtime)
 		} catch (err) {
 			log('Error sorting frames', err)
 		}
 	} else if (alt) {
-		log('This feature is not ready, please check https://github.com/sixteenmillimeter/frameloom.git', {})
-		process.exit(10)
+		//log('This feature is not ready, please check https://github.com/sixteenmillimeter/frameloom.git', {})
+		//process.exit(10)
+		log('Sorting frames with alternate pattern...')
 		try {
 			seq = await altSort(frames, pattern, realtime)
 		} catch (err) {
@@ -263,39 +266,82 @@ async function weave (pattern : number[], realtime : boolean, random : boolean) 
 async function altSort (list : string[], pattern : number[], realtime : boolean) {
 	let groups : any[] = []
 	let newList : string[] = []
+	let loops : number = 0
+	let patternIndexes : number[] = []
 	let frameCount : number = 0
+	let skipCount : number
+	let skip : boolean
+	let oldName : string
 	let oldPath : string
 	let newName : string
 	let newPath : string
 	let ext : string = path.extname(list[0])
+	let x : number
+	let i : number
 	
-	for (let g of pattern) {
+	for (x = 0; x < pattern.length; x++) {
 		groups.push([])
+		for (let i : number = 0; i < pattern[x]; i++) {
+			patternIndexes.push(x)
+		}
 	}
-	for (let i : number = 0; i < list.length; i++) {
+
+	for (i = 0; i < list.length; i++) {
 		groups[i % pattern.length].push(list[i])
 	}
-	for (let x : number = 0; x < list.length; x++) {
-		for (let g of pattern) {
-			for (let i : number = 0; i < g; i++) {
 
-				/*oldPath = path.join(TMPPATH, list[i]);
-				newName = `./render_${zeroPad(frameCount)}${ext}`;
-				newPath = path.join(TMPPATH, newName);
+	loops = Math.ceil(list.length / patternIndexes.length)
 
-				log(`Renaming ${list[i]} -> ${newName}`);
+	if (realtime) {
+		skip = false
+		skipCount = patternIndexes.length + 1
+	}
 
+	for (x = 0; x < loops; x++) {
+		for (i = 0; i < patternIndexes.length; i++) {
+
+			if (realtime) {
+				skipCount--;
+				if (skipCount === 0) {
+					skip = !skip;
+					skipCount = pattern.length
+				}
+			}
+
+			if (typeof groups[patternIndexes[i]][0] === 'undefined') {
+				continue
+			}
+
+			oldName = String(groups[patternIndexes[i]][0])
+			oldPath = path.join(TMPPATH, oldName)
+
+			groups[patternIndexes[i]].shift()
+
+			if (skip) {
+				log(`Skipping ${oldName}`)
 				try {
-					//await fs.move(oldPath, newPath, { overwrite: true })
-					newList.push(newName);
+					await fs.unlink(oldPath)
 				} catch (err) {
-					log(err);
-				}*/
+					log('Error deleting frame', err)
+				}
+				continue
+			}
 
+			newName = `./render_${zeroPad(frameCount)}${ext}`
+			newPath = path.join(TMPPATH, newName)
+			log(`Renaming ${oldName} -> ${newName}`)
+
+			try {
+				await fs.move(oldPath, newPath)
+				newList.push(newName)
 				frameCount++
+			} catch (err) {
+				log('Error renaming frame', err)
+				return process.exit(10)
 			}
 		}
 	}
+
 	return newList
 }
 /**
@@ -485,12 +531,6 @@ async function render (output : string, avconv : boolean) {
 	log(`Exporting video ${output}`)
 	log(cmd)
 
-	/*try {
-		await exec(`ls "${TMPPATH}"`)
-	} catch (err) {
-		log(err)
-	}*/
-
 	try {
 		await exec(cmd)
 	} catch (err) {
@@ -511,6 +551,8 @@ async function main (arg : any) {
 	let avconv : boolean = false
 	let random : boolean = false
 	let e  : any = false
+	let exe : string = arg.avconv ? 'avconv' : 'ffmpeg'
+	let exists : any 
 
 	console.time('frameloom')
 
@@ -555,6 +597,23 @@ async function main (arg : any) {
 		}
 	}
 
+	try {
+		exists = await exec(`which ${exe}`)
+	} catch (err) {
+		log(`Error checking for ${exe}`)
+		process.exit(11)
+	}
+
+	if (!exists || exists === '' || exists.indexOf(exe) === -1) {
+		log(`${exe} is required and is not installed. Please install ${exe} to use frameloom.`)
+		process.exit(12)
+	}
+
+	if (pattern.length !== input.length) {
+		log(`Number of inputs (${input.length}) doesn't match the pattern length (${pattern.length})`)
+		process.exit(10)
+	}
+
 	if (arg.realtime) realtime = true;
 
 	TMPPATH = path.join(TMPDIR, 'frameloom');
@@ -577,7 +636,6 @@ async function main (arg : any) {
 		}
 	}
 
-	log('Weaving frames')
 	try {
 		await weave(pattern, realtime, random)
 	} catch (err) {

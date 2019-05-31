@@ -1,6 +1,6 @@
 {
   "name": "frameloom",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Node script to generate flicker videos by interweaving frames from multiple videos",
   "main": "frameloom",
   "scripts": {

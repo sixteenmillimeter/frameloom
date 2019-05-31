@@ -219,6 +219,7 @@ async function weave(pattern, realtime, random) {
             alt = true;
     }
     if (random) {
+        log('Sorting frames randomly...');
         try {
             seq = await randomSort(frames, pattern, realtime);
         }
@@ -227,6 +228,7 @@ async function weave(pattern, realtime, random) {
         }
     }
     else if (!alt) {
+        log('Sorting frames normally...');
         try {
             seq = await standardSort(frames, pattern, realtime);
         }
@@ -235,8 +237,9 @@ async function weave(pattern, realtime, random) {
         }
     }
     else if (alt) {
-        log('This feature is not ready, please check https://github.com/sixteenmillimeter/frameloom.git', {});
-        process.exit(10);
+        //log('This feature is not ready, please check https://github.com/sixteenmillimeter/frameloom.git', {})
+        //process.exit(10)
+        log('Sorting frames with alternate pattern...');
         try {
             seq = await altSort(frames, pattern, realtime);
         }
@@ -256,33 +259,68 @@ async function weave(pattern, realtime, random) {
 async function altSort(list, pattern, realtime) {
     let groups = [];
     let newList = [];
+    let loops = 0;
+    let patternIndexes = [];
     let frameCount = 0;
+    let skipCount;
+    let skip;
+    let oldName;
     let oldPath;
     let newName;
     let newPath;
     let ext = path.extname(list[0]);
-    for (let g of pattern) {
+    let x;
+    let i;
+    for (x = 0; x < pattern.length; x++) {
         groups.push([]);
+        for (let i = 0; i < pattern[x]; i++) {
+            patternIndexes.push(x);
+        }
     }
-    for (let i = 0; i < list.length; i++) {
+    for (i = 0; i < list.length; i++) {
         groups[i % pattern.length].push(list[i]);
     }
-    for (let x = 0; x < list.length; x++) {
-        for (let g of pattern) {
-            for (let i = 0; i < g; i++) {
-                /*oldPath = path.join(TMPPATH, list[i]);
-                newName = `./render_${zeroPad(frameCount)}${ext}`;
-                newPath = path.join(TMPPATH, newName);
-
-                log(`Renaming ${list[i]} -> ${newName}`);
-
+    loops = Math.ceil(list.length / patternIndexes.length);
+    if (realtime) {
+        skip = false;
+        skipCount = patternIndexes.length + 1;
+    }
+    for (x = 0; x < loops; x++) {
+        for (i = 0; i < patternIndexes.length; i++) {
+            if (realtime) {
+                skipCount--;
+                if (skipCount === 0) {
+                    skip = !skip;
+                    skipCount = pattern.length;
+                }
+            }
+            if (typeof groups[patternIndexes[i]][0] === 'undefined') {
+                continue;
+            }
+            oldName = String(groups[patternIndexes[i]][0]);
+            oldPath = path.join(TMPPATH, oldName);
+            groups[patternIndexes[i]].shift();
+            if (skip) {
+                log(`Skipping ${oldName}`);
                 try {
-                    //await fs.move(oldPath, newPath, { overwrite: true })
-                    newList.push(newName);
-                } catch (err) {
-                    log(err);
-                }*/
+                    await fs.unlink(oldPath);
+                }
+                catch (err) {
+                    log('Error deleting frame', err);
+                }
+                continue;
+            }
+            newName = `./render_${zeroPad(frameCount)}${ext}`;
+            newPath = path.join(TMPPATH, newName);
+            log(`Renaming ${oldName} -> ${newName}`);
+            try {
+                await fs.move(oldPath, newPath);
+                newList.push(newName);
                 frameCount++;
+            }
+            catch (err) {
+                log('Error renaming frame', err);
+                return process.exit(10);
             }
         }
     }
@@ -483,6 +521,8 @@ async function main(arg) {
     let avconv = false;
     let random = false;
     let e = false;
+    let exe = arg.avconv ? 'avconv' : 'ffmpeg';
+    let exists;
     console.time('frameloom');
     if (input.length < 2) {
         log('Must provide more than 1 input', {});
@@ -518,6 +558,21 @@ async function main(arg) {
             pattern.push(1);
         }
     }
+    try {
+        exists = await exec(`which ${exe}`);
+    }
+    catch (err) {
+        log(`Error checking for ${exe}`);
+        process.exit(11);
+    }
+    if (!exists || exists === '' || exists.indexOf(exe) === -1) {
+        log(`${exe} is required and is not installed. Please install ${exe} to use frameloom.`);
+        process.exit(12);
+    }
+    if (pattern.length !== input.length) {
+        log(`Number of inputs (${input.length}) doesn't match the pattern length (${pattern.length})`);
+        process.exit(10);
+    }
     if (arg.realtime)
         realtime = true;
     TMPPATH = path.join(TMPDIR, 'frameloom');
@@ -538,7 +593,6 @@ async function main(arg) {
             return process.exit(4);
         }
     }
-    log('Weaving frames');
     try {
         await weave(pattern, realtime, random);
     }
