@@ -34,7 +34,7 @@ if (!fs.existsSync(`./dist/${platform}_${arch}`)) {
 
 console.log(`Building frameloom and saving in dist/${platform}_${arch}...`)
 console.time('frameloom')
-exec([ 'frameloom', '--target', 'host', '--output', `./dist/${platform}_${arch}/frameloom` ]).then(async (res) => {
+exec([ 'frameloom', '--target', 'node10', '--output', `./dist/${platform}_${arch}/frameloom` ]).then(async (res) => {
 	try {
 		await shell_out(`zip -r ./dist/frameloom_${platform}_${arch}_${packageJson.version}.zip ./dist/${platform}_${arch}/frameloom`)
 		console.log(`Compressed binary to dist/frameloom_${platform}_${arch}_${packageJson.version}.zip`)
