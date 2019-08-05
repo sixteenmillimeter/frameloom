@@ -498,6 +498,10 @@ async function spinFrames () {
 		if (randomInt(0, 1) === 1) {
 			flop = '-flop '
 		}
+		if (flip === '' && flop === '' && rotate === '') {
+			//skip unrotated, unflipped and unflopped frames
+			continue
+		}
 		cmd = `convert ${framePath} ${rotate}${flip}${flop} ${framePath}`
 		console.log(cmd)
 		try {
@@ -643,6 +647,15 @@ async function main (arg : any) {
 		return process.exit(5)
 	}
 
+	if (arg.spin) {
+		try {
+			await spinFrames()
+		} catch (err) {
+			log('Error spinning', err)
+			return process.exit(13)
+		}
+	}
+
 	if (e) {
 		try {
 			await subExec(e)
@@ -678,6 +691,7 @@ program
   .option('-t, --tmp [dir]', 'Specify tmp directory for exporting frames')
   .option('-a, --avconv', 'Specify avconv if preferred to ffmpeg')
   .option('-R, --random', 'Randomize frames. Ignores pattern if included')
+  .option('-s, --spin', 'Randomly rotate frames before rendering')
   .option('-e, --exec', 'Command to execute on every frame. Specify {{i}} and {{o}} if the command requires it, otherwise frame path will be appended to command')
   .option('-q, --quiet', 'Suppresses all log messages')
   .parse(process.argv)
