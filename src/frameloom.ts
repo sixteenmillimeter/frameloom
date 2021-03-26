@@ -8,7 +8,7 @@ const { join, extname } = require('path')
 const program 	= require('commander')
 const { move, exists, unlink, readdir, mkdir } = require('fs-extra')
 
-const { version } = require('package.json')
+const { version } = require('./package.json')
 
 const OUTPUT_RE : RegExp = new RegExp('{{o}}', 'g')
 const INPUT_RE  : RegExp = new RegExp('{{i}}', 'g')
