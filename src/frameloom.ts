@@ -3,18 +3,18 @@
 'use strict'
 
 const execRaw 	= require('child_process').exec
-const os 		= require('os')
-const path 		= require('path')
+const { tmpdir } 		= require('os')
+const { join, extname } = require('path')
 const program 	= require('commander')
-const fs 		= require('fs-extra')
+const { move, exists, unlink, readdir, mkdir } = require('fs-extra')
 
-const pkg : any = require('./package.json')
+const { version } = require('package.json')
 
 const OUTPUT_RE : RegExp = new RegExp('{{o}}', 'g')
 const INPUT_RE  : RegExp = new RegExp('{{i}}', 'g')
 
 let QUIET : boolean = false
-let TMPDIR  : string = os.tmpdir() || '/tmp'
+let TMPDIR  : string = tmpdir() || '/tmp'
 let TMPPATH : string
 
 /**
@@ -102,15 +102,15 @@ function randomInt (min : number, max : number) {
  **/
 async function clear () {
 	let cmd : string = `rm -r "${TMPPATH}"`
-	let exists : boolean
+	let dirExists : boolean
 
 	try {
-		exists = await fs.exists(TMPPATH)
+		dirExists = await exists(TMPPATH)
 	} catch (err) {
 		log('Error checking if file exists', err)
 	}
 
-	if (exists) {
+	if (dirExists) {
 		log(`Clearing temp directory "${TMPPATH}"`)
 		try {
 			await exec(cmd)
@@ -121,7 +121,7 @@ async function clear () {
 	}
 
 	try {
-		await fs.mkdir(TMPPATH)
+		await mkdir(TMPPATH)
 	} catch (err) {
 		if (err.code !== 'EEXIST') {
 			log('Error making directory', err)
@@ -147,7 +147,7 @@ async function frames (video : string, order : number, avconv : boolean) {
 	let tmpoutput : string
 	let cmd : string
 
-	tmpoutput = path.join(TMPPATH, `export-%05d_${order}.${ext}`)
+	tmpoutput = join(TMPPATH, `export-%05d_${order}.${ext}`)
 
 	cmd = `${exe} -i "${video}" -compression_algo raw -pix_fmt rgb24 "${tmpoutput}"`
 
@@ -160,7 +160,7 @@ async function frames (video : string, order : number, avconv : boolean) {
 		return process.exit(3)
 	}
 
-	return path.join(TMPPATH, `export-%05d_${order}`)
+	return join(TMPPATH, `export-%05d_${order}`)
 }
 /**
  * Shells out to run a sub command on every frame to perform effects
@@ -174,7 +174,7 @@ async function subExec (cmd : string) {
 	let framePath : string
 
 	try {
-		frames = await fs.readdir(TMPPATH)
+		frames = await readdir(TMPPATH)
 	} catch (err) {
 		log('Error reading tmp directory', err)
 	}
@@ -184,7 +184,7 @@ async function subExec (cmd : string) {
 	})
 
 	for (let frame of frames) {
-		framePath = path.join(TMPPATH, frame)
+		framePath = join(TMPPATH, frame)
 		if (cmd.indexOf('{{i}}') !== -1 || cmd.indexOf('{{o}}')) {
 			frameCmd = cmd.replace(INPUT_RE, framePath)
 						.replace(OUTPUT_RE, framePath)
@@ -216,7 +216,7 @@ async function weave (pattern : number[], realtime : boolean, random : boolean) 
 	log('Weaving frames...')
 
 	try {
-		frames = await fs.readdir(TMPPATH)
+		frames = await readdir(TMPPATH)
 	} catch (err) {
 		log('Error reading tmp directory', err)
 	}
@@ -275,7 +275,7 @@ async function altSort (list : string[], pattern : number[], realtime : boolean)
 	let oldPath : string
 	let newName : string
 	let newPath : string
-	let ext : string = path.extname(list[0])
+	let ext : string = extname(list[0])
 	let x : number
 	let i : number
 	
@@ -313,14 +313,14 @@ async function altSort (list : string[], pattern : number[], realtime : boolean)
 			}
 
 			oldName = String(groups[patternIndexes[i]][0])
-			oldPath = path.join(TMPPATH, oldName)
+			oldPath = join(TMPPATH, oldName)
 
 			groups[patternIndexes[i]].shift()
 
 			if (skip) {
 				log(`Skipping ${oldName}`)
 				try {
-					await fs.unlink(oldPath)
+					await unlink(oldPath)
 				} catch (err) {
 					log('Error deleting frame', err)
 				}
@@ -328,11 +328,11 @@ async function altSort (list : string[], pattern : number[], realtime : boolean)
 			}
 
 			newName = `./render_${zeroPad(frameCount)}${ext}`
-			newPath = path.join(TMPPATH, newName)
+			newPath = join(TMPPATH, newName)
 			log(`Renaming ${oldName} -> ${newName}`)
 
 			try {
-				await fs.move(oldPath, newPath)
+				await move(oldPath, newPath)
 				newList.push(newName)
 				frameCount++
 			} catch (err) {
@@ -357,7 +357,7 @@ async function standardSort (list : string[], pattern : number[], realtime : boo
 	let step : any
 	let skipCount : number
 	let skip : boolean
-	let ext : string = path.extname(list[0])
+	let ext : string = extname(list[0])
 	let oldPath : string
 	let newName : string
 	let newPath : string
@@ -377,12 +377,12 @@ async function standardSort (list : string[], pattern : number[], realtime : boo
 			}
 		}
 
-		oldPath = path.join(TMPPATH, list[i])
+		oldPath = join(TMPPATH, list[i])
 
 		if (skip) {
 			log(`Skipping ${list[i]}`)
 			try {
-				await fs.unlink(oldPath)
+				await unlink(oldPath)
 			} catch (err) {
 				log('Error deleting frame', err)
 			}
@@ -390,11 +390,11 @@ async function standardSort (list : string[], pattern : number[], realtime : boo
 		}
 
 		newName = `./render_${zeroPad(frameCount)}${ext}`
-		newPath = path.join(TMPPATH, newName)
+		newPath = join(TMPPATH, newName)
 		log(`Renaming ${list[i]} -> ${newName}`)
 
 		try {
-			await fs.move(oldPath, newPath)
+			await move(oldPath, newPath)
 			newList.push(newName)
 			frameCount++
 		} catch (err) {
@@ -416,7 +416,7 @@ async function standardSort (list : string[], pattern : number[], realtime : boo
  **/
 async function randomSort (list : string[], pattern : number[], realtime : boolean) {
 	let frameCount : number = 0
-	let ext : string = path.extname(list[0])
+	let ext : string = extname(list[0])
 	let oldPath : string
 	let newName : string
 	let newPath : string
@@ -433,10 +433,10 @@ async function randomSort (list : string[], pattern : number[], realtime : boole
 
 		log(`Skipping extra frames...`)
 		for (let i : number = 0; i < remove.length; i++) {
-			oldPath = path.join(TMPPATH, remove[i])
+			oldPath = join(TMPPATH, remove[i])
 			log(`Skipping ${list[i]}`)
 			try {
-				await fs.unlink(oldPath)
+				await unlink(oldPath)
 			} catch (err) {
 				log('Error deleting frame', err)
 			}
@@ -444,14 +444,14 @@ async function randomSort (list : string[], pattern : number[], realtime : boole
 	}
 	
 	for (let i : number = 0; i < list.length; i++) {
-		oldPath = path.join(TMPPATH, list[i])
+		oldPath = join(TMPPATH, list[i])
 
 		newName = `./render_${zeroPad(frameCount)}${ext}`
-		newPath = path.join(TMPPATH, newName)
+		newPath = join(TMPPATH, newName)
 		log(`Renaming ${list[i]} -> ${newName}`)
 
 		try {
-			await fs.move(oldPath, newPath)
+			await move(oldPath, newPath)
 			newList.push(newName)
 		} catch (err) {
 			log('Error moving frame', err)
@@ -474,7 +474,7 @@ async function spinFrames () {
 	console.log('Spinning frames...')
 
 	try {
-		frames = await fs.readdir(TMPPATH)
+		frames = await readdir(TMPPATH)
 	} catch (err) {
 		console.error('Error reading tmp directory', err)
 	}
@@ -485,7 +485,7 @@ async function spinFrames () {
 	})
 
 	for (let frame of frames) {
-		framePath = path.join(TMPPATH, frame)
+		framePath = join(TMPPATH, frame)
 		rotate = ''
 		flip = ''
 		flop = ''
@@ -521,7 +521,7 @@ async function spinFrames () {
  **/
 async function render (output : string, avconv : boolean) {
 	//process.exit()
-	let frames : string = path.join(TMPPATH, `render_%05d.tif`)
+	let frames : string = join(TMPPATH, `render_%05d.tif`)
 	let exe : string = avconv ? 'avconv' : 'ffmpeg'
 	let resolution : string = '1920x1080' //TODO: make variable/argument
 	//TODO: make object configurable with shorthand names
@@ -556,7 +556,7 @@ async function main (arg : any) {
 	let random : boolean = false
 	let e  : any = false
 	let exe : string = arg.avconv ? 'avconv' : 'ffmpeg'
-	let exists : any 
+	let fileExists : any 
 
 	console.time('frameloom')
 
@@ -602,13 +602,13 @@ async function main (arg : any) {
 	}
 
 	try {
-		exists = await exec(`which ${exe}`)
+		fileExists = await exec(`which ${exe}`)
 	} catch (err) {
 		log(`Error checking for ${exe}`)
 		process.exit(11)
 	}
 
-	if (!exists || exists === '' || exists.indexOf(exe) === -1) {
+	if (!fileExists || fileExists === '' || fileExists.indexOf(exe) === -1) {
 		log(`${exe} is required and is not installed. Please install ${exe} to use frameloom.`)
 		process.exit(12)
 	}
@@ -620,7 +620,7 @@ async function main (arg : any) {
 
 	if (arg.realtime) realtime = true;
 
-	TMPPATH = path.join(TMPDIR, 'frameloom');
+	TMPPATH = join(TMPDIR, 'frameloom');
 
 	try {
 		await clear()
@@ -683,7 +683,7 @@ async function main (arg : any) {
 }
 
 program
-  .version(pkg.version)
+  .version(version)
   .option('-i, --input [files]', 'Specify input videos with paths seperated by colon')
   .option('-o, --output [file]', 'Specify output path of video')
   .option('-p, --pattern [pattern]', 'Specify a pattern for the flicker 1:1 is standard')

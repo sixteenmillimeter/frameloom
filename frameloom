@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 'use strict';
 const execRaw = require('child_process').exec;
-const os = require('os');
-const path = require('path');
+const { tmpdir } = require('os');
+const { join, extname } = require('path');
 const program = require('commander');
-const fs = require('fs-extra');
-const pkg = require('./package.json');
+const { move, exists, unlink, readdir, mkdir } = require('fs-extra');
+const { version } = require('package.json');
 const OUTPUT_RE = new RegExp('{{o}}', 'g');
 const INPUT_RE = new RegExp('{{i}}', 'g');
 let QUIET = false;
-let TMPDIR = os.tmpdir() || '/tmp';
+let TMPDIR = tmpdir() || '/tmp';
 let TMPPATH;
 /**
  * 	Shells out to execute a command with async/await.
@@ -97,14 +97,14 @@ function randomInt(min, max) {
  **/
 async function clear() {
     let cmd = `rm -r "${TMPPATH}"`;
-    let exists;
+    let dirExists;
     try {
-        exists = await fs.exists(TMPPATH);
+        dirExists = await exists(TMPPATH);
     }
     catch (err) {
         log('Error checking if file exists', err);
     }
-    if (exists) {
+    if (dirExists) {
         log(`Clearing temp directory "${TMPPATH}"`);
         try {
             await exec(cmd);
@@ -115,7 +115,7 @@ async function clear() {
         }
     }
     try {
-        await fs.mkdir(TMPPATH);
+        await mkdir(TMPPATH);
     }
     catch (err) {
         if (err.code !== 'EEXIST') {
@@ -140,7 +140,7 @@ async function frames(video, order, avconv) {
     let exe = avconv ? 'avconv' : 'ffmpeg';
     let tmpoutput;
     let cmd;
-    tmpoutput = path.join(TMPPATH, `export-%05d_${order}.${ext}`);
+    tmpoutput = join(TMPPATH, `export-%05d_${order}.${ext}`);
     cmd = `${exe} -i "${video}" -compression_algo raw -pix_fmt rgb24 "${tmpoutput}"`;
     log(`Exporting ${video} as single frames...`);
     try {
@@ -150,7 +150,7 @@ async function frames(video, order, avconv) {
         log('Error exporting video', err);
         return process.exit(3);
     }
-    return path.join(TMPPATH, `export-%05d_${order}`);
+    return join(TMPPATH, `export-%05d_${order}`);
 }
 /**
  * Shells out to run a sub command on every frame to perform effects
@@ -163,7 +163,7 @@ async function subExec(cmd) {
     let frameCmd;
     let framePath;
     try {
-        frames = await fs.readdir(TMPPATH);
+        frames = await readdir(TMPPATH);
     }
     catch (err) {
         log('Error reading tmp directory', err);
@@ -173,7 +173,7 @@ async function subExec(cmd) {
             return true;
     });
     for (let frame of frames) {
-        framePath = path.join(TMPPATH, frame);
+        framePath = join(TMPPATH, frame);
         if (cmd.indexOf('{{i}}') !== -1 || cmd.indexOf('{{o}}')) {
             frameCmd = cmd.replace(INPUT_RE, framePath)
                 .replace(OUTPUT_RE, framePath);
@@ -204,7 +204,7 @@ async function weave(pattern, realtime, random) {
     let alt = false;
     log('Weaving frames...');
     try {
-        frames = await fs.readdir(TMPPATH);
+        frames = await readdir(TMPPATH);
     }
     catch (err) {
         log('Error reading tmp directory', err);
@@ -268,7 +268,7 @@ async function altSort(list, pattern, realtime) {
     let oldPath;
     let newName;
     let newPath;
-    let ext = path.extname(list[0]);
+    let ext = extname(list[0]);
     let x;
     let i;
     for (x = 0; x < pattern.length; x++) {
@@ -298,12 +298,12 @@ async function altSort(list, pattern, realtime) {
                 continue;
             }
             oldName = String(groups[patternIndexes[i]][0]);
-            oldPath = path.join(TMPPATH, oldName);
+            oldPath = join(TMPPATH, oldName);
             groups[patternIndexes[i]].shift();
             if (skip) {
                 log(`Skipping ${oldName}`);
                 try {
-                    await fs.unlink(oldPath);
+                    await unlink(oldPath);
                 }
                 catch (err) {
                     log('Error deleting frame', err);
@@ -311,10 +311,10 @@ async function altSort(list, pattern, realtime) {
                 continue;
             }
             newName = `./render_${zeroPad(frameCount)}${ext}`;
-            newPath = path.join(TMPPATH, newName);
+            newPath = join(TMPPATH, newName);
             log(`Renaming ${oldName} -> ${newName}`);
             try {
-                await fs.move(oldPath, newPath);
+                await move(oldPath, newPath);
                 newList.push(newName);
                 frameCount++;
             }
@@ -339,7 +339,7 @@ async function standardSort(list, pattern, realtime) {
     let step;
     let skipCount;
     let skip;
-    let ext = path.extname(list[0]);
+    let ext = extname(list[0]);
     let oldPath;
     let newName;
     let newPath;
@@ -356,11 +356,11 @@ async function standardSort(list, pattern, realtime) {
                 skipCount = pattern.length;
             }
         }
-        oldPath = path.join(TMPPATH, list[i]);
+        oldPath = join(TMPPATH, list[i]);
         if (skip) {
             log(`Skipping ${list[i]}`);
             try {
-                await fs.unlink(oldPath);
+                await unlink(oldPath);
             }
             catch (err) {
                 log('Error deleting frame', err);
@@ -368,10 +368,10 @@ async function standardSort(list, pattern, realtime) {
             continue;
         }
         newName = `./render_${zeroPad(frameCount)}${ext}`;
-        newPath = path.join(TMPPATH, newName);
+        newPath = join(TMPPATH, newName);
         log(`Renaming ${list[i]} -> ${newName}`);
         try {
-            await fs.move(oldPath, newPath);
+            await move(oldPath, newPath);
             newList.push(newName);
             frameCount++;
         }
@@ -391,7 +391,7 @@ async function standardSort(list, pattern, realtime) {
  **/
 async function randomSort(list, pattern, realtime) {
     let frameCount = 0;
-    let ext = path.extname(list[0]);
+    let ext = extname(list[0]);
     let oldPath;
     let newName;
     let newPath;
@@ -405,10 +405,10 @@ async function randomSort(list, pattern, realtime) {
         list = list.slice(0, removeLen);
         log(`Skipping extra frames...`);
         for (let i = 0; i < remove.length; i++) {
-            oldPath = path.join(TMPPATH, remove[i]);
+            oldPath = join(TMPPATH, remove[i]);
             log(`Skipping ${list[i]}`);
             try {
-                await fs.unlink(oldPath);
+                await unlink(oldPath);
             }
             catch (err) {
                 log('Error deleting frame', err);
@@ -416,12 +416,12 @@ async function randomSort(list, pattern, realtime) {
         }
     }
     for (let i = 0; i < list.length; i++) {
-        oldPath = path.join(TMPPATH, list[i]);
+        oldPath = join(TMPPATH, list[i]);
         newName = `./render_${zeroPad(frameCount)}${ext}`;
-        newPath = path.join(TMPPATH, newName);
+        newPath = join(TMPPATH, newName);
         log(`Renaming ${list[i]} -> ${newName}`);
         try {
-            await fs.move(oldPath, newPath);
+            await move(oldPath, newPath);
             newList.push(newName);
         }
         catch (err) {
@@ -440,7 +440,7 @@ async function spinFrames() {
     let rotate;
     console.log('Spinning frames...');
     try {
-        frames = await fs.readdir(TMPPATH);
+        frames = await readdir(TMPPATH);
     }
     catch (err) {
         console.error('Error reading tmp directory', err);
@@ -451,7 +451,7 @@ async function spinFrames() {
             return true;
     });
     for (let frame of frames) {
-        framePath = path.join(TMPPATH, frame);
+        framePath = join(TMPPATH, frame);
         rotate = '';
         flip = '';
         flop = '';
@@ -487,7 +487,7 @@ async function spinFrames() {
  **/
 async function render(output, avconv) {
     //process.exit()
-    let frames = path.join(TMPPATH, `render_%05d.tif`);
+    let frames = join(TMPPATH, `render_%05d.tif`);
     let exe = avconv ? 'avconv' : 'ffmpeg';
     let resolution = '1920x1080'; //TODO: make variable/argument
     //TODO: make object configurable with shorthand names
@@ -521,7 +521,7 @@ async function main(arg) {
     let random = false;
     let e = false;
     let exe = arg.avconv ? 'avconv' : 'ffmpeg';
-    let exists;
+    let fileExists;
     console.time('frameloom');
     if (input.length < 2) {
         log('Must provide more than 1 input', {});
@@ -558,13 +558,13 @@ async function main(arg) {
         }
     }
     try {
-        exists = await exec(`which ${exe}`);
+        fileExists = await exec(`which ${exe}`);
     }
     catch (err) {
         log(`Error checking for ${exe}`);
         process.exit(11);
     }
-    if (!exists || exists === '' || exists.indexOf(exe) === -1) {
+    if (!fileExists || fileExists === '' || fileExists.indexOf(exe) === -1) {
         log(`${exe} is required and is not installed. Please install ${exe} to use frameloom.`);
         process.exit(12);
     }
@@ -574,7 +574,7 @@ async function main(arg) {
     }
     if (arg.realtime)
         realtime = true;
-    TMPPATH = path.join(TMPDIR, 'frameloom');
+    TMPPATH = join(TMPDIR, 'frameloom');
     try {
         await clear();
     }
@@ -634,7 +634,7 @@ async function main(arg) {
     console.timeEnd('frameloom');
 }
 program
-    .version(pkg.version)
+    .version(version)
     .option('-i, --input [files]', 'Specify input videos with paths seperated by colon')
     .option('-o, --output [file]', 'Specify output path of video')
     .option('-p, --pattern [pattern]', 'Specify a pattern for the flicker 1:1 is standard')
