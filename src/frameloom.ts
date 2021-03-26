@@ -25,7 +25,7 @@ let TMPPATH : string
  *
  *	@returns {Promise} 	Promise containing the complete stdio
  **/
-async function exec (cmd : string) {
+async function exec (cmd : string) : Promise<string> {
 	return new Promise((resolve : any, reject : any) => {
 		return execRaw(cmd, { maxBuffer : 500 * 1024 * 1024}, (err : any, stdio : string, stderr : string) => {
 			if (err) return reject(err)
@@ -40,7 +40,7 @@ async function exec (cmd : string) {
  *
  *	@returns {Promise} 	Promise that resolves after set time
  **/
-async function delay (ms : number) {
+async function delay (ms : number) : Promise<any> {
 	return new Promise((resolve : any, reject : any) =>{
 		return setTimeout(resolve, ms)
 	})
@@ -49,7 +49,7 @@ async function delay (ms : number) {
  * Log function wrapper that can silences logs when
  * QUIET == true
  */
-function log (msg : string, err : any = false) {
+function log (msg : string, err : any = false) : boolean {
 	if (QUIET) return false
 	if (err) {
 		console.error(msg, err)
@@ -141,7 +141,7 @@ async function clear () {
  *
  * 	@returns 	{string} 	String with the export order, not sure why I did this
  **/
-async function frames (video : string, order : number, avconv : boolean) {
+async function frames (video : string, order : number, avconv : boolean) : Promise<string> {
 	let ext : string = 'tif'
 	let exe : string = avconv ? 'avconv' : 'ffmpeg'
 	let tmpoutput : string
