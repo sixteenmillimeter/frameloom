@@ -48,7 +48,3 @@ Options:
   -h, --help               display help for command
 ```
 
-## TODO
-
-* Generate example videos automatically
-* Publish example videos
