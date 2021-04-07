@@ -512,7 +512,8 @@ async function render(output, avconv) {
  *
  * @param {object} 	arg 	Object containing all arguments
  **/
-async function main(arg) {
+async function main(program) {
+    const arg = program.opts();
     let input = arg.input.split(':');
     let output = arg.output;
     let pattern = [];

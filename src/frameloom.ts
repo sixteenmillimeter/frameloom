@@ -547,7 +547,8 @@ async function render (output : string, avconv : boolean) {
  * 
  * @param {object} 	arg 	Object containing all arguments
  **/
-async function main (arg : any) {
+async function main (program : any) {
+	const arg = program.opts();
 	let input : string[] = arg.input.split(':')
 	let output : string = arg.output
 	let pattern : any[] = []
