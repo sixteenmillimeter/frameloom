@@ -4,6 +4,8 @@ Node script to generate flicker videos by interweaving frames from multiple vide
 
 --------
 
+## Git URL [git.sixteenmillimeter.com/16mm/frameloom](https://git.sixteenmillimeter.com/16mm/frameloom)
+
 ## Requirements 
 
 This script relies on `ffmpeg` to export and stitch video back together
