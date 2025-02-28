@@ -1,5 +1,7 @@
 # frameloom
 
+![Image illustrating two 5 frame sequences stitched together with frameloom](./img/frameloom.jpg)
+
 Node script to generate flicker videos by interweaving frames from multiple videos
 
 --------
